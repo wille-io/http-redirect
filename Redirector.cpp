@@ -39,8 +39,17 @@ Redirector::Redirector(QObject *parent)
           this, [this, p]()
   {
     QByteArray data(p->readAllStandardOutput());
-    //qWarning() << "stdin" << data;
-    sendData("data", data);
+    //qWarning() << "stdout" << data;
+    sendData("stdout", data);
+  });
+
+
+  connect(p, &QProcess::readyReadStandardError,
+          this, [this, p]()
+  {
+    QByteArray data(p->readAllStandardOutput());
+    //qWarning() << "stderr" << data;
+    sendData("stderr", data);
   });
 
 
