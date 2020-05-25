@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QProcess>
 #include <QUuid>
+#include <QHostInfo>
 #include <QDebug>
 #include <stdio.h>
 #include <unistd.h>
@@ -80,7 +81,7 @@ Redirector::Redirector(QObject *parent)
   p->start();
 
 
-  sendData("connected", {});
+  sendData("connected", QHostInfo::localHostName().toUtf8());
 }
 
 
