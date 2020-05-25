@@ -47,7 +47,7 @@ Redirector::Redirector(QObject *parent)
   connect(p, &QProcess::readyReadStandardError,
           this, [this, p]()
   {
-    QByteArray data(p->readAllStandardOutput());
+    QByteArray data(p->readAllStandardError());
     //qWarning() << "stderr" << data;
     sendData("stderr", data);
   });
