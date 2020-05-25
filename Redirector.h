@@ -13,6 +13,9 @@ public:
   explicit Redirector(QObject *parent = nullptr);
 
 private:
-  QNetworkAccessManager *mNam;
+  void sendData(const QString &subUrl, const QByteArray &data);
 
+  QNetworkAccessManager *mNam;
+  QString mUrl;
+  QString mUuid;
 };

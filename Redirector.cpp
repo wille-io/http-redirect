@@ -7,6 +7,7 @@
 #include <QSocketNotifier>
 #include <QFile>
 #include <QProcess>
+#include <QUuid>
 #include <QDebug>
 #include <stdio.h>
 #include <unistd.h>
@@ -16,6 +17,7 @@
 Redirector::Redirector(QObject *parent)
   : QObject(parent)
   , mNam(new QNetworkAccessManager(this))
+  , mUuid(QUuid::createUuid().toString())
 {
   const QStringList args(QCoreApplication::arguments());
 
@@ -30,52 +32,71 @@ Redirector::Redirector(QObject *parent)
   p->setProgram(args[2]);
   p->setArguments(args.mid(3));
 
-  const QString url(args[1]);
+  mUrl = args[1];
 
 
   connect(p, &QProcess::readyReadStandardOutput,
-          this, [this, p, url]()
+          this, [this, p]()
   {
     QByteArray data(p->readAllStandardOutput());
     //qWarning() << "stdin" << data;
-
-    QUrl u(url);
-    QNetworkRequest request(u);
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
-    request.setRawHeader("User-Agent", "Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36");
-
-
-    QNetworkReply *reply = mNam->post(request, data);
-
-
-    connect(reply, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::error),
-            this, [reply](QNetworkReply::NetworkError code)
-    {
-      qWarning() << "network error while sending data" << code << reply->errorString();
-      reply->deleteLater();
-    });
-
-
-    connect(reply, &QNetworkReply::finished,
-            this, [reply]()
-    {
-      reply->deleteLater();
-    });
+    sendData("data", data);
   });
 
 
   connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-          this, [](int x)
+          this, [this](int x)
   {
-    qWarning() << "finished" << x;
+    qWarning() << "process finished" << x;
+    sendData("finished", QString::number(x).toUtf8());
   });
 
 
   connect(p, &QProcess::errorOccurred,
-          this, [p]()
+          this, [this, p]()
   {
-    qWarning() << "error" << p->errorString();
+    qWarning() << "process error" << p->errorString();
+    sendData("error", p->errorString().toUtf8());
   });
 
+
+  connect(p, &QProcess::started,
+          this, [this, p]()
+  {
+    qWarning() << "process started" << p->processId();
+    sendData("started", QString::number(p->processId()).toUtf8());
+  });
+
+
   p->start();
+
+
+  sendData("connected", {});
+}
+
+
+void Redirector::sendData(const QString &subUrl, const QByteArray &data)
+{
+  QUrl u(QString("%1/%2").arg(mUrl, subUrl));
+  QNetworkRequest request(u);
+  request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
+  request.setRawHeader("User-Agent", "http-redirect");
+  request.setRawHeader("Uuid", mUuid.toUtf8());
+
+  QNetworkReply *reply = mNam->post(request, data);
+
+
+  connect(reply, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::error),
+          this, [reply](QNetworkReply::NetworkError code)
+  {
+    qWarning() << "network error while sending data" << code << reply->errorString();
+    reply->deleteLater();
+  });
+
+
+  connect(reply, &QNetworkReply::finished,
+          this, [reply]()
+  {
+    reply->deleteLater();
+  });
 }
